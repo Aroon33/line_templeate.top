@@ -1,0 +1,17 @@
+[Unit]
+Description=Line Platform UI
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/line-platform/ui
+EnvironmentFile=/var/www/line-platform/.env
+# Example for Node/Next.js. Adjust if using another stack.
+ExecStart=/usr/bin/bash -lc 'npm run start -- --hostname 127.0.0.1 --port 3101'
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

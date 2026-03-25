@@ -1,0 +1,16 @@
+[Unit]
+Description=Line Platform API (FastAPI/Uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/line-platform/api
+EnvironmentFile=/var/www/line-platform/.env
+ExecStart=/usr/bin/bash -lc 'uvicorn main:app --host 127.0.0.1 --port 8101'
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

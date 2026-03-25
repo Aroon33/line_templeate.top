@@ -1,0 +1,546 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>LINE Platform 管理画面</title>
+<style>
+:root{--line:#d9d9d9;--text:#111;--bg:#f5f6f7;--panel:#ffffff;--sub:#f0f1f2;--line-green:#06C755;--line-green-dark:#00B900;--chat-bg:#e9ebee}*{box-sizing:border-box}body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
+.layout{display:grid;grid-template-columns:250px 1fr;height:100vh}.layout.sidebar-hidden{grid-template-columns:1fr}.layout.sidebar-hidden .sidebar{display:none}.sidebar{background:var(--panel);border-right:1px solid var(--line);padding:12px;overflow:auto}.tool{padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:#fff;cursor:pointer}
+.main{display:grid;grid-template-columns:360px 1fr 380px}.pane{border-right:1px solid var(--line)}.pane:last-child{border-right:none}.head{padding:12px;border-bottom:1px solid var(--line);background:var(--sub);font-weight:700}
+.list{height:calc(100vh - 100px);overflow:auto}.conv{padding:10px;border-bottom:1px solid #182238;cursor:pointer}.conv.active,.conv:hover{background:#e9f8ef}.conv.unread{background:#fff7ed}.conv.pending{border-left:4px solid #f97316;padding-left:6px}
+.chat{display:grid;grid-template-rows:auto 1fr auto;height:100vh}.msgs{padding:12px;overflow:auto;display:flex;flex-direction:column;gap:8px}.msg{max-width:78%;padding:10px 12px;border-radius:16px;box-shadow:0 1px 0 rgba(0,0,0,.05)}.in{background:#fff;border:1px solid #e5e7eb}.out{background:#e5e5ea;color:#111;align-self:flex-end;border:1px solid #d0d0d0}
+.send{display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px;border-top:1px solid var(--line);background:#fff}.composer{display:grid;grid-template-rows:auto auto;gap:6px}.composer-tools{display:flex;gap:6px}.icon-btn{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0}input,textarea,select{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text)}button{padding:8px 10px;border:1px solid #cfd3d8;background:#fff;color:var(--text);border-radius:8px;cursor:pointer}.primary{background:#4b5563;border-color:#4b5563;color:#fff}
+.card{padding:10px;border-bottom:1px solid var(--line);background:#fff}.k{color:#666;font-size:12px}.muted{color:#7a7a7a;font-size:12px}.row{display:flex;gap:10px;align-items:center}.avatar{width:32px;height:32px;border-radius:999px;object-fit:cover;background:#e5e7eb}.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}.chip{font-size:11px;padding:2px 8px;border:1px solid #d0d7de;border-radius:999px;background:#fff}
+details{border-bottom:1px solid var(--line)}summary{padding:10px;cursor:pointer;font-weight:600}.hidden{display:none}.page{height:100vh;overflow:auto}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.tab{padding:6px 10px;border:1px solid var(--line);border-radius:999px;cursor:pointer}.tab.active{background:#1f3b2a;border-color:#2d6a4f}
+
+#tplFolderCard{order:1}
+#tplEditorCard{order:2}
+
+
+/* chat bubble force override */
+.msgs .msg-item{display:flex!important;flex-direction:column!important;max-width:100%!important}
+.msgs .msg-item.incoming{align-items:flex-start!important}
+.msgs .msg-item.outgoing{align-items:flex-end!important}
+.msgs .msg{
+  display:inline-block!important;
+  width:auto!important;
+  max-width:min(72%,680px)!important;
+  padding:10px 12px!important;
+  border-radius:16px!important;
+}
+.msgs .msg.in{background:#f1f1f1!important;color:#111!important;border:1px solid #dcdcdc!important}
+.msgs .msg.out{background:#e5e5ea!important;color:#111!important;border:1px solid #d0d0d0!important}
+.msgs .msg-meta{font-size:11px!important;color:#666!important;margin-top:3px!important}
+
+/* mobile responsive */
+@media (max-width: 980px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:min(84vw,320px);z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+  .layout.sidebar-hidden .sidebar{display:none}
+  .main{grid-template-columns:1fr;grid-template-rows:auto auto auto}
+  .pane{border-right:none;border-bottom:1px solid var(--line)}
+  .pane:last-child{border-bottom:none}
+  .list{height:32vh}
+  .chat{height:56vh}
+  .send{grid-template-columns:1fr}
+  .send button#sendBtn{width:100%}
+  #openSidebarBtn{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:999px;background:#fff;border:1px solid var(--line)}
+}
+
+@media (max-width: 640px){
+  .head{padding:10px;font-size:14px}
+  .card{padding:8px}
+  input,textarea,select,button{font-size:16px}
+  .msgs .msg{max-width:88%!important}
+}
+
+</style></head><body>
+<div class="layout"><aside class="sidebar" id="sidebar"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>メニュー</b><button onclick="toggleSidebar(false)">✕</button></div>
+<div class="tool" onclick="showPage('chat')"><b>チャット運用</b></div>
+<div class="tool" onclick="showPage('users')">ユーザー一覧</div>
+<div class="tool" onclick="showPage('channels')">LINEチャネル設定</div>
+<div class="tool" onclick="showPage('tags')">タグ/メモ管理</div>
+<div class="tool" onclick="showPage('template')">テンプレート作成</div>
+<div class="tool" onclick="showPage('surveyBuilder')">アンケート生成</div>
+<div class="tool" onclick="showPage('links')">リンク作成・一覧</div>
+<div class="tool" onclick="showPage('products')">商品管理</div>
+<div class="tool" onclick="showPage('others')">その他（後回し）</div>
+</aside>
+
+<button id="openSidebarBtn" onclick="toggleSidebar(true)" style="position:fixed;left:8px;top:8px;z-index:80">☰</button><section id="chatPage" class="page"><section class="main"><div class="pane"><div class="head">チャット一覧</div><div style="padding:10px;border-bottom:1px solid var(--line);display:grid;gap:6px"><input id="search" name="chat-search" autocomplete="off" placeholder="ユーザー名 / ID"><div style="display:flex;gap:6px"><select id="filterChannel"><option value="">公式LINE:全て</option></select><select id="filterTag"><option value="">タグ:全て</option></select><select id="filterStatus"><option value="">ステータス:全て</option></select></div></div><div class="list" id="convList"></div></div>
+<div class="pane chat"><div class="head" id="chatHead"><div class="row"><img id="chatChannelAvatar" class="avatar" src="" onerror="this.style.visibility='hidden'" style="visibility:hidden"><div><div id="chatChannelName">チャット（未選択）</div><div class="muted" id="chatHeadSub">-</div></div></div></div><div class="msgs" id="msgs"></div><div class="send"><div class="composer"><div class='composer-tools'><button type='button' class='icon-btn' title='テンプレ送信' onclick='openQuickTemplatePicker()'>🧩</button></div><textarea id="msgInput" rows="3" placeholder="メッセージを入力（Enterで送信 / Shift+Enterで改行）"></textarea></div><button class="primary" id="sendBtn">送信</button></div></div>
+<div class="pane"><div class="head">プロフィール</div><div class="card"><div class="row"><img id="p_avatar" class="avatar" src="" onerror="this.style.visibility='hidden'"><div><div id="p_name" style="font-weight:700">-</div><div class="muted">公式LINE: <span id="p_line_account">-</span></div><div class="muted">登録日時: <span id="p_registered">-</span></div></div></div></div><div class="card"><div class="k">メモ</div><textarea id="memoTop" rows="6"></textarea><button onclick="saveMemo()">メモ保存</button></div><details open><summary>ユーザーデータ</summary><div class="card"><div class="k">内部ユーザーID</div><div id="p_member">-</div></div><div class="card"><div class="k">年齢 / 性別 / 電話</div><div id="p_basic">-</div></div></details><details><summary>アンケート回答</summary><div class='card'><div class='k'>初回アンケート(7項目)</div><div id='p_survey_extra' style='display:grid;gap:4px;margin-top:6px;font-size:13px'></div></div></details><details><summary>タグ</summary><div class="card"><div class="k">初期タグ</div><div id="p_initial_tag">-</div></div><div class="card"><div class="k">タグ</div><select id="tagSelect"><option value="">未設定</option><option>登録時</option><option>回答中</option><option>回答済み</option><option>会員登録中</option><option>会員済</option><option>案件紹介中</option><option>案件1中</option><option>案件1済</option><option>案件2中</option><option>案件2済</option><option>案件3中</option><option>案件3済</option><option>案件4中</option><option>案件4済</option><option>案件5中</option><option>案件5済</option><option>商材案内中</option><option>フロント販売導線中</option><option>フロント商品購入</option><option>要フォロー</option><option>対応完了</option></select></div><div class="card"><div class="k">ステータス</div><select id="statusSelect"><option value="">未設定</option><option>新規受付</option><option>未反応</option><option>AI対応中</option><option>アンケート待ち</option><option>アンケート完了</option><option>会員登録中</option><option>会員登録済</option><option>案件紹介中</option><option>案件1中</option><option>案件1済</option><option>案件2中</option><option>案件2済</option><option>案件3中</option><option>案件3済</option><option>案件4中</option><option>案件4済</option><option>案件5中</option><option>案件5済</option><option>購入検討中</option><option>フロント販売完了</option><option>保留</option><option>対応完了</option></select></div><div class='card'><div class='k'>対応マーク</div><select id='supportMarkSelect'><option value=''>未設定</option><option>未反応</option><option>AI対応中</option><option>スタッフ対応</option><option>サポート対応</option><option>購入者</option><option>要エスカレーション</option></select><button id="saveAttr">保存</button></div></details><details><summary>紹介リンク / テンプレ送信</summary><div class="card"><div class='k'>紹介リンク対象チャネル</div><select id='refChannelSlot'><option value=''>自動(現在チャネル)</option><option value='1'>CH1</option><option value='2'>CH2</option><option value='3'>CH3</option></select><input id="p_ref_link" readonly><button onclick="copyRef()">コピー</button><button onclick="sendReferralLink()">ユーザーへ送信</button><div class='muted' id='p_ref_sent'>最終送信: -</div></div><div class="card"><select id="surveyTemplate"></select><button onclick="sendSurveyTemplate()">選択テンプレを送信</button></div></details></div></section></section>
+
+<section id="templatePage" class="page hidden"><div class="head">テンプレート作成ページ</div><div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1200px"><div class="card" id="tplEditorCard"><div style="display:flex;justify-content:space-between;align-items:center"><div class="k">テンプレート作成（先にフォルダ作成/選択）</div><div style='display:flex;gap:8px'><button onclick="newTemplateDraft()">新規作成</button></div></div><div style="display:flex;gap:8px;align-items:center"><label><input type="checkbox" id="showShared" checked onchange="renderFolderTabs()"> 共有</label><label><input type="checkbox" id="showFixed" checked onchange="renderFolderTabs()"> 固定</label></div><div id="folderTabs" class="tabs"></div><div class="muted" id="currentFolderLabel">選択フォルダ: -</div><div class="k" style="margin-top:10px">フォルダ種別</div><select id="tplFolderType" onchange="toggleFixedChannelSelect()"><option value="shared">共有</option><option value="fixed">固定</option></select><div id='fixedChannelWrap' class='hidden'><div class="k" style="margin-top:8px">固定先 公式LINE</div><select id='tplFixedChannel'><option value=''>公式LINEを選択</option></select></div><div class="k" style="margin-top:10px">タイトル名</div><input id="tplTitle" placeholder="例: 登録開始_標準"><div class="k" style="margin-top:8px">テンプレテキスト</div><textarea id="tplBody" rows="8" placeholder="本文"></textarea><div class="k" style="margin-top:8px">差し込み変数</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="tplVarSelect" style="max-width:320px"><option value="{{USER_NAME}}">USER_NAME</option><option value="{{MEMBER_CODE}}">MEMBER_CODE</option><option value="{{CHANNEL_NAME}}">CHANNEL_NAME</option><option value="{{REFERRAL_LINK}}">REFERRAL_LINK</option><option value="{{AGE}}">AGE</option><option value="{{GENDER}}">GENDER</option><option value="{{PHONE}}">PHONE</option><option value="{{DESIRED_WORK}}">DESIRED_WORK</option><option value="{{AVAILABLE_TIME}}">AVAILABLE_TIME</option><option value="{{DESIRED_REWARD}}">DESIRED_REWARD</option><option value="{{EXPERIENCE_LEVEL}}">EXPERIENCE_LEVEL</option></select><button onclick="insertVar()">挿入</button></div><div class="k" style="margin-top:8px">保存済みリンクを選択して挿入</div><div style="display:flex;gap:8px;align-items:center"><select id="tplLinkSelect"></select><button onclick="insertSelectedLink()">リンク挿入</button></div><div class="k" style="margin-top:8px">URL（任意）</div><input id="tplUrl" placeholder="https://..."><div class='k' style='margin-top:8px'>送信後遷移（任意）</div><input id='tplTransitionTag' placeholder='タグ'><input id='tplTransitionStatus' placeholder='ステータス' style='margin-top:6px'><input id='tplTransitionSupport' placeholder='対応マーク' style='margin-top:6px'><div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button class="primary" onclick="saveTemplate()" id='tplSaveBtn'>保存</button><button onclick="cancelTemplateEdit()" id='tplCancelEditBtn' class='hidden'>編集キャンセル</button><span id='tplEditHint' class='muted'></span></div></div><div class="card" id="tplFolderCard"><div style='display:flex;justify-content:space-between;align-items:center'><div class="k">フォルダ選択 / テンプレート一覧</div><div style='display:flex;gap:8px'><button onclick="renameCurrentFolder()">フォルダ名変更</button><button onclick="createFolder()">+ フォルダ作成</button></div></div><div id="tplList"></div></div></div></section>
+
+<section id="surveyBuilderPage" class="page hidden"><div class="head">アンケート生成ページ</div><div style="padding:14px;display:grid;gap:12px;max-width:1200px"><div class='card'><div style='display:flex;gap:8px;flex-wrap:wrap'><button class='tab active' id='svModeCategory' onclick="switchSurveyMode('category')">CHアンケート編集</button><button class='tab' id='svModeLibrary' onclick="switchSurveyMode('library')">デフォルト候補編集</button></div></div><div id='surveyCategoryEditor'><div class='card'><div style='display:flex;gap:8px;flex-wrap:wrap'><button class='tab active' id='svTabSide' onclick="switchSurveyCategory('side')">CH1 副業</button><button class='tab' id='svTabEstate' onclick="switchSurveyCategory('estate')">CH2 不動産</button><button class='tab' id='svTabAi' onclick="switchSurveyCategory('ai')">CH3 AI</button></div><div class='k' style='margin-top:8px'>デフォルト質問</div><select id='svPreset'></select><button onclick='addSurveyPreset()'>デフォルト追加</button><button onclick='addSurveyFree()'>自由入力追加</button><button onclick='saveSurveyTemplates()' class='primary'>保存</button></div><div class='card'><div id='surveyBuilderList'></div></div></div><div id='surveyLibraryEditor' class='hidden'><div class='card'><b>デフォルト候補マスタ編集</b><div id='surveyLibraryList'></div><button onclick='addSurveyLibraryRow()'>候補追加</button><button class='primary' onclick='saveSurveyLibrary()'>候補を保存</button></div></div></div></section>
+
+<section id="linksPage" class="page hidden"><div class="head">リンク作成・一覧ページ</div><div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1200px"><div class="card"><div class="k">フォルダ名</div><input id="lnkFolder" placeholder="例: LP"><div class="k" style="margin-top:8px">タイトル名</div><input id="lnkTitle" placeholder="例: 案件LP1"><div class="k" style="margin-top:8px">URL</div><input id="lnkUrl" placeholder="https://..."><div class="k" style="margin-top:8px">メモ（任意）</div><textarea id="lnkNote" rows="4"></textarea><div style="margin-top:10px"><button class="primary" onclick="saveLink()">リンク保存</button></div></div><div class="card"><div class="k">保存済みリンク一覧</div><div id="linkList"></div></div></div></section>
+
+<section id="usersPage" class="page hidden"><div class="head">ユーザー一覧</div>
+<div style="padding:12px"><input id="userSearch" placeholder="名前・ID・会員コードで検索" style="max-width:420px"></div>
+<div style="display:grid;grid-template-columns:1fr 420px;gap:0;height:calc(100vh - 120px)">
+  <div id="usersList" style="padding:12px;overflow:auto;border-right:1px solid var(--line)"></div>
+  <div id="userDetailPane" style="padding:12px;overflow:auto">
+    <div class="muted">ユーザーを選択してください</div>
+  </div>
+</div></section>
+<section id="channelsPage" class="page hidden"><div class="head">LINEチャネル設定</div><div style="padding:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="syncChannels()">チャネル情報を同期</button><button onclick="loadChannels()">再読込</button><span class='muted'>※名前変更後は同期で更新</span></div><div class='card' style='margin:12px'><b>サンクスページ設定</b><div class='k' style='margin-top:8px'>画像URL</div><input id='thanksImageUrl' placeholder='https://...'><div class='k' style='margin-top:8px'>待機秒(0-60)</div><input id='thanksWaitSec' type='number' min='0' max='60'><div style='margin-top:10px;display:flex;gap:8px'><button onclick='loadThanksConfig()'>現在値読込</button><button class='primary' onclick='saveThanksConfig()'>保存(.env)</button></div></div><div class="card" style="margin:12px"><b>新規チャネル追加</b><div class="k" style="margin-top:8px">スロット(任意:1-3)</div><input id="chSlot" placeholder="空なら自動"><div class="k" style="margin-top:8px">公式LINE名（任意・自動取得）</div><input id="chName" placeholder="例: 採用LINE A"><div class="k" style="margin-top:8px">Channel ID</div><input id="chId" placeholder="200xxxx"><div class="k" style="margin-top:8px">Destination(BOT ID/U... 任意・自動取得）</div><input id="chDest" placeholder="U..."><div class="k" style="margin-top:8px">Channel Secret</div><input id="chSecret" placeholder="secret"><div class="k" style="margin-top:8px">Access Token</div><textarea id="chToken" rows="3"></textarea><div class="k" style="margin-top:8px">友だち追加URL(任意)</div><input id="chFriend" placeholder="https://lin.ee/..."><div style="margin-top:10px"><button class="primary" onclick="addChannel()">チャネル追加してENV保存</button></div></div><div id="channelsList" style="padding:12px"></div></section>
+
+<section id="productsPage" class="page hidden"><div class="head">商品管理（商材フロント）</div><div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1200px"><div class="card"><div class='k'>種別</div><select id='prdType'><option value='material'>商材</option><option value='sidejob'>副業</option></select><div class='k' style='margin-top:8px'>商品名</div><input id='prdName' placeholder='商品名'><div class='k' style='margin-top:8px'>価格(円)</div><input id='prdPrice' type='number' placeholder='19800'><div class='k' style='margin-top:8px'>説明</div><textarea id='prdDesc' rows='4'></textarea><div class='k' style='margin-top:8px'>購入URL</div><input id='prdUrl' placeholder='https://...'><div style='margin-top:10px'><button class='primary' onclick='saveProduct()'>商品を保存</button></div></div><div class='card'><div class='k'>商品一覧</div><div id='productsList'></div></div></div></section>
+<section id="tagsPage" class="page hidden"><div class="head">タグ/メモ管理（簡易）</div><div style="padding:12px" class="muted">準備中（タグマスタ管理は次段）</div></section>
+<section id="othersPage" class="page hidden"><div class="head">その他（後回し）</div><div style="padding:12px" class="muted">要件が明確になったページから順次追加します。</div></section>
+
+<div id="quickTplModal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:120"><div style="width:min(92vw,560px);background:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px"><h3>テンプレ送信</h3><div class="k">フォルダ選択</div><select id="quickTplFolderSelect" onchange="renderQuickTemplateOptions()"></select><div class="k" style='margin-top:8px'>テンプレ検索</div><input id='quickTplSearch' placeholder='タイトルで検索' oninput='renderQuickTemplateOptions()'><div class="k" style='margin-top:8px'>テンプレ選択</div><select id="quickTplSelect" onchange="updateQuickTemplatePreview()"></select><div class="k" style="margin-top:8px">本文プレビュー</div><textarea id="quickTplPreview" rows="6" readonly></textarea><div style="margin-top:10px;display:flex;gap:8px"><button class="primary" onclick="sendQuickTemplate()">このテンプレを送信</button><button onclick="quickTplModal.style.display='none'">閉じる</button></div></div></div>
+<div id="loginModal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:99"><div style="width:min(92vw,380px);background:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px"><h3>管理者ログイン</h3><input id="loginEmail" placeholder="admin"><input id="loginPassword" type="password" placeholder="password" style="margin-top:8px"><button class="primary" onclick="doLogin()" style="margin-top:8px">ログイン</button><div class="muted" id="loginMsg"></div></div></div>
+
+<script>
+const API=location.origin + '/api';let token=localStorage.getItem('adminToken')||'';let selectedConv=null,selectedUser=null,conversations=[];let selectedConversationObj=null;let templatesCache=[];let currentFolder='';let linksCache=[];let folderCache=[];let folderMeta=[];let editingTemplateId=null;
+let surveyCategory='side'; let surveyLibrary=[]; let surveyTemplates={side:[],estate:[],ai:[]};
+function toggleSidebar(show){ const layout=document.querySelector('.layout'); if(!layout) return; if(show===true){ layout.classList.remove('sidebar-hidden'); } else if(show===false){ layout.classList.add('sidebar-hidden'); } else { layout.classList.toggle('sidebar-hidden'); } }
+function showPage(p){['chat','template','surveyBuilder','links','users','channels','tags','products','others'].forEach(k=>document.getElementById(k+'Page').classList.toggle('hidden',k!==p));}
+
+function switchSurveyMode(mode){ const cat=document.getElementById('surveyCategoryEditor'); const lib=document.getElementById('surveyLibraryEditor'); const b1=document.getElementById('svModeCategory'); const b2=document.getElementById('svModeLibrary'); if(cat) cat.classList.toggle('hidden', mode!=='category'); if(lib) lib.classList.toggle('hidden', mode!=='library'); if(b1) b1.classList.toggle('active', mode==='category'); if(b2) b2.classList.toggle('active', mode==='library'); }
+function switchSurveyCategory(cat){ surveyCategory=cat; ['side','estate','ai'].forEach(c=>{ const id=c==='side'?'svTabSide':(c==='estate'?'svTabEstate':'svTabAi'); const el=document.getElementById(id); if(el) el.classList.toggle('active', c===cat);}); renderSurveyBuilder(); }
+function renderSurveyLibrary(){ const wrap=document.getElementById('surveyLibraryList'); if(!wrap) return; wrap.innerHTML=''; (surveyLibrary||[]).forEach((x,i)=>{ const row=document.createElement('div'); row.className='card'; row.innerHTML=`<div style='display:flex;justify-content:space-between'><b>${i+1}</b><div style='display:flex;gap:6px'><button onclick='saveSurveyLibraryRow(${i})'>保存</button><button onclick='removeSurveyLibraryRow(${i})'>削除</button></div></div><div class='k'>キー</div><input value="${(x.key||'').replace(/"/g,'&quot;')}" oninput="surveyLibrary[${i}].key=this.value"><div class='k'>表示名</div><input value="${(x.label||'').replace(/"/g,'&quot;')}" oninput="surveyLibrary[${i}].label=this.value"><div class='k'>初期選択肢（1行1件）</div><textarea rows='3' oninput="surveyLibrary[${i}].options=this.value.split('\\n').map(v=>v.trim()).filter(Boolean)">${(x.options||[]).join('\n')}</textarea>`; wrap.appendChild(row); }); }
+function addSurveyLibraryRow(){ surveyLibrary.push({key:`q_${Date.now()}`,label:'新規質問',options:['はい','いいえ']}); renderSurveyLibrary(); }
+function removeSurveyLibraryRow(i){ surveyLibrary.splice(i,1); renderSurveyLibrary(); }
+async function saveSurveyLibraryRow(i){ await saveSurveyLibrary(); }
+async function saveSurveyRow(i){ await saveSurveyTemplates(); }
+function addSurveyPreset(){ const sel=document.getElementById('svPreset'); if(!sel||!sel.value) return; const p=surveyLibrary.find(x=>x.key===sel.value); if(!p) return; const arr=surveyTemplates[surveyCategory]||[]; arr.push({key:p.key,q:`Q${arr.length+1}: ${p.label}を選んでください。`,type:'single',options:[...(p.options||['はい','いいえ'])]}); surveyTemplates[surveyCategory]=arr; renderSurveyBuilder(); }
+function addSurveyFree(){ const arr=surveyTemplates[surveyCategory]||[]; arr.push({key:`free_${Date.now()}`,q:`Q${arr.length+1}: 質問を入力`,type:'text',options:['自由入力']}); surveyTemplates[surveyCategory]=arr; renderSurveyBuilder(); }
+function updateSurveyRow(i,field,val){ const arr=surveyTemplates[surveyCategory]||[]; if(!arr[i]) return; arr[i][field]=val; if(field==='type' && val==='text'){arr[i].options=['自由入力'];} surveyTemplates[surveyCategory]=arr; }
+function updateSurveyOptions(i,val){ const arr=surveyTemplates[surveyCategory]||[]; if(!arr[i]) return; arr[i].options=(val||'').split('\n').map(x=>x.trim()).filter(Boolean); surveyTemplates[surveyCategory]=arr; }
+function removeSurveyRow(i){ const arr=surveyTemplates[surveyCategory]||[]; arr.splice(i,1); surveyTemplates[surveyCategory]=arr; renderSurveyBuilder(); }
+function renderSurveyBuilder(){ const wrap=document.getElementById('surveyBuilderList'); if(!wrap) return; const arr=surveyTemplates[surveyCategory]||[]; wrap.innerHTML=''; arr.forEach((q,i)=>{ const row=document.createElement('div'); row.className='card'; row.innerHTML=`<div style='display:flex;justify-content:space-between'><b>Q${i+1}</b><div style='display:flex;gap:6px'><button onclick='saveSurveyRow(${i})'>保存</button><button onclick='removeSurveyRow(${i})'>削除</button></div></div><div class='k'>キー</div><input value="${(q.key||'').replace(/"/g,'&quot;')}" oninput="updateSurveyRow(${i},'key',this.value)"><div class='k'>質問文</div><input value="${(q.q||'').replace(/"/g,'&quot;')}" oninput="updateSurveyRow(${i},'q',this.value)"><div class='k'>回答形式</div><select onchange="updateSurveyRow(${i},'type',this.value)"><option value='single' ${(q.type||'single')==='single'?'selected':''}>単一選択</option><option value='multi' ${(q.type||'single')==='multi'?'selected':''}>複数選択</option><option value='text' ${(q.type||'single')==='text'?'selected':''}>自由記述</option></select><div class='k'>選択肢（1行1件）</div><textarea rows='4' oninput="updateSurveyOptions(${i},this.value)">${(q.options||[]).join('\n')}</textarea>`; wrap.appendChild(row); }); }
+async function loadSurveyTemplates(){ const r=await authFetch(`${API}/survey/templates`); if(!r.ok) return; const j=await r.json(); surveyLibrary=j.library||[]; surveyTemplates=j.categories||{side:[],estate:[],ai:[]}; const sel=document.getElementById('svPreset'); if(sel){ sel.innerHTML='<option value="">デフォルトから選択</option>'; surveyLibrary.forEach(x=>{const o=document.createElement('option'); o.value=x.key; o.textContent=x.label; sel.appendChild(o);}); } renderSurveyLibrary(); renderSurveyBuilder(); }
+async function saveSurveyLibrary(){ try{ const r=await authFetch(`${API}/survey/library`,{method:'POST',body:JSON.stringify({items:surveyLibrary})}); let j={}; try{ j=await r.json(); }catch(_){ j={}; } if(!r.ok||!j.ok){ alert(`候補保存失敗 (HTTP ${r.status})`); return; } await loadSurveyTemplates(); alert('デフォルト候補を保存しました'); }catch(e){ alert('候補保存失敗: '+(e?.message||e)); } }
+async function saveSurveyTemplates(){ try{ const r=await authFetch(`${API}/survey/templates`,{method:'POST',body:JSON.stringify({categories:surveyTemplates})}); let j={}; try{ j=await r.json(); }catch(_){ j={}; } if(!r.ok||!j.ok){ alert(`保存失敗 (HTTP ${r.status})`); return; } alert('アンケートテンプレを保存しました'); }catch(e){ alert('保存失敗: '+(e?.message||e)); } }
+
+async function authFetch(url,opt={}){const h={...(opt.headers||{}),...(token?{Authorization:'Bearer '+token}:{})};if(opt.body&&!h['content-type'])h['content-type']='application/json';const r=await fetch(url,{...opt,headers:h});if(r.status===401){loginModal.style.display='flex';throw new Error('unauthorized')}return r}
+async function doLogin(){const r=await fetch(`${API}/auth/admin/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:loginEmail.value.trim(),password:loginPassword.value})});if(!r.ok){loginMsg.textContent='失敗';return;}const j=await r.json();token=j.access_token;localStorage.setItem('adminToken',token);loginModal.style.display='none';bootstrap();}
+async function bootstrap(){await Promise.allSettled([loadConversations(),loadTemplates(),loadTemplateFolders(),loadSurveyTemplates(),loadLinks(),loadUsers(),loadChannels(),loadProducts()]); await populateFixedChannelSelect(); toggleFixedChannelSelect();}
+async function loadConversations(){const r=await authFetch(`${API}/conversations`);conversations=await r.json();refreshConversationFilters();renderConversations();}
+function renderConversations(){
+  convList.innerHTML='';
+  const q=(search.value||'').toLowerCase();
+  const fc=(filterChannel.value||'');
+  const ft=(filterTag.value||'');
+  const fs=(filterStatus.value||'');
+  conversations
+    .filter(c=>!q||String(c.user_id).includes(q)||String(c.user_name||'').toLowerCase().includes(q))
+    .filter(c=>!fc||String(c.channel_name||'')===fc)
+    .filter(c=>!ft||String(c.tag||'')===ft)
+    .filter(c=>!fs||String(c.status_label||'')===fs)
+    .forEach(c=>{
+      const d=document.createElement('div');
+      d.className='conv'+(c.id===selectedConv?' active':'')+(c.is_unread?' unread':'')+((c.reply_status==='未返信')?' pending':'');
+      d.innerHTML=`<div class='row'><img class='avatar' src='${c.profile_image_url||''}' onerror="this.style.visibility='hidden'"><div style='flex:1'><b>${c.user_name||('USER'+c.user_id)}</b><div class='muted'>${c.last_message_preview||''}</div><div class='chips'><span class='chip'>${c.reply_status}</span><span class='chip'>${c.read_status}</span><span class='chip'>${c.channel_name||''}</span><span class='chip'>対応:${c.support_mark||'-'}</span></div></div><button title='ピン留め' onclick='event.stopPropagation();togglePin(${c.id},${c.is_pinned?0:1})'>${c.is_pinned?'📌':'📍'}</button></div>`;
+      d.onclick=()=>selectConversation(c.id,c.user_id);
+      convList.appendChild(d);
+    });
+}
+
+function refreshConversationFilters(){
+  const channels=[...new Set(conversations.map(c=>c.channel_name).filter(Boolean))];
+  const tags=[...new Set(conversations.map(c=>c.tag).filter(Boolean))];
+  const sts=[...new Set(conversations.map(c=>c.status_label).filter(Boolean))];
+  const setOpts=(el,arr,label)=>{ const cur=el.value; el.innerHTML=`<option value="">${label}:全て</option>`; arr.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);}); if(cur) el.value=cur; };
+  setOpts(filterChannel,channels,'公式LINE');
+  setOpts(filterTag,tags,'タグ');
+  setOpts(filterStatus,sts,'ステータス');
+}
+
+async function togglePin(conversationId,value){
+  const r=await authFetch(`${API}/conversations/${conversationId}/pin?value=${value}`,{method:'POST'});
+  const j=await r.json();
+  if(!r.ok||!j.ok){ alert('ピン更新失敗'); return; }
+  await loadConversations();
+}
+
+async function selectConversation(cid,uid){selectedConv=cid;selectedUser=uid;selectedConversationObj=(conversations||[]).find(c=>c.id===cid)||null;chatChannelName.textContent=(selectedConversationObj?.channel_name||`チャット #${cid}`);chatHeadSub.textContent=`会話ID: ${cid} / ユーザーID: ${uid}`;chatChannelAvatar.src=(selectedConversationObj?.channel_picture_url||'');chatChannelAvatar.style.visibility=(selectedConversationObj?.channel_picture_url?'visible':'hidden');await Promise.all([loadMessages(),loadProfile()]);renderConversations();}
+async function loadMessages(){
+  if(!selectedConv) return;
+  const r=await authFetch(`${API}/conversations/${selectedConv}/messages`);
+  const rows=await r.json();
+  msgs.innerHTML='';
+
+  rows.forEach(m=>{
+    const outgoing=(m.direction==='outbound');
+    const item=document.createElement('div');
+    item.className='msg-item '+(outgoing?'outgoing':'incoming');
+
+    const bubble=document.createElement('div');
+    bubble.className='msg '+(outgoing?'out':'in');
+    bubble.innerHTML=(m.body||'').replace(/</g,'&lt;').replace(/\n/g,'<br>');
+
+    if(outgoing){
+      let holdTimer=null;
+      const askSave=()=>{ if(confirm('この吹き出しをテンプレ保存しますか？')) quickSaveFromMessage(m.id,m.body||''); };
+      bubble.addEventListener('contextmenu',(e)=>{e.preventDefault();askSave();});
+      bubble.addEventListener('touchstart',()=>{holdTimer=setTimeout(askSave,700);},{passive:true});
+      bubble.addEventListener('touchend',()=>{if(holdTimer){clearTimeout(holdTimer);holdTimer=null;}});
+      bubble.addEventListener('touchmove',()=>{if(holdTimer){clearTimeout(holdTimer);holdTimer=null;}});
+      bubble.title='長押し（または右クリック）でテンプレ保存';
+    }
+
+    const meta=document.createElement('div');
+    meta.className='msg-meta';
+    const t=(m.created_at||'').toString().replace('T',' ').slice(11,16) || '--:--';
+    meta.textContent = outgoing ? `${t} 既読` : t;
+
+    item.appendChild(bubble);
+    item.appendChild(meta);
+    msgs.appendChild(item);
+  });
+
+  msgs.scrollTop=msgs.scrollHeight;
+}
+async function quickSaveFromMessage(messageId, body){ const folder_name=prompt('フォルダ名','クイック保存'); if(!folder_name) return; const title=prompt('タイトル名', (body||'').slice(0,20)||'テンプレ'); if(!title) return; const r=await authFetch(`${API}/templates/from-message`,{method:'POST',body:JSON.stringify({message_id:messageId,folder_name,title})}); const j=await r.json(); if(!r.ok||!j.ok){alert('保存失敗');return;} alert('テンプレ保存しました'); loadTemplates(); }
+async function loadProfile(){if(!selectedUser)return;const r=await authFetch(`${API}/users/${selectedUser}/profile?conversation_id=${selectedConv||''}`);const d=await r.json();p_member.textContent=d.user.member_code||`U${String(d.user.id).padStart(6,'0')}`;p_name.textContent=d.user.display_name||'-';p_line_account.textContent=(selectedConversationObj&&selectedConversationObj.channel_name)?selectedConversationObj.channel_name:'-';p_registered.textContent=d.user.registered_at||'-';const sa0=(d.interview&&d.interview.survey_answers)?d.interview.survey_answers:{}; const ageV=sa0.reg_age_band||d.user.age||'-'; const genderV=sa0.reg_gender||d.user.gender||'-'; const phoneV=sa0.reg_phone||d.user.phone_number||'-'; p_basic.textContent=`${ageV} / ${genderV} / ${phoneV}`;p_initial_tag.textContent=d.user.initial_tag||'-';p_ref_link.value=d.user.referral_link||'';p_ref_sent.textContent='最終送信: '+(d.user.referral_last_sent_at||'-');tagSelect.value=d.user.tag||'';statusSelect.value=d.user.status_label||'';if(window.supportMarkSelect) supportMarkSelect.value=d.user.support_mark||'';const sa=d.interview.survey_answers||{}; const order=['reg_name','reg_phone','reg_age_band','reg_gender','work_style','hours_per_week','job_type','device_env','sidejob_exp','start_timing','contact_time']; const labels={reg_name:'登録名',reg_phone:'電話',reg_age_band:'年齢帯',reg_gender:'性別',work_style:'希望働き方',hours_per_week:'稼働時間',job_type:'希望業務',device_env:'作業環境',sidejob_exp:'副業経験',start_timing:'開始時期',contact_time:'連絡時間帯'}; if(window.p_survey_extra){ const has=Object.keys(sa).length>0; p_survey_extra.innerHTML = has ? order.map(k=>`<div style="display:flex;justify-content:space-between;gap:8px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;background:#fff"><span class="k" style="font-size:12px">${labels[k]}</span><span>${sa[k]||'-'}</span></div>`).join('') : `<div class='muted'>未回答（アンケート実施後に表示されます）</div>`; }memoTop.value=d.interview.notes||'';p_avatar.src=d.user.profile_image_url||'';p_avatar.style.visibility=(d.user.profile_image_url?'visible':'hidden');}
+async function sendLine(){const b=msgInput.value.trim();if(!selectedConv||!b)return;const r=await authFetch(`${API}/line/send`,{method:'POST',body:JSON.stringify({conversation_id:selectedConv,body:b})});if(!r.ok){alert('送信失敗');return;}msgInput.value='';loadMessages();loadConversations();}
+async function saveAttributes(){if(!selectedUser)return;await authFetch(`${API}/users/${selectedUser}/attributes`,{method:'POST',body:JSON.stringify({tag:tagSelect.value||null,status_label:statusSelect.value||null,support_mark:(window.supportMarkSelect?supportMarkSelect.value:null)||null})});alert('保存しました');loadConversations();}
+async function saveMemo(){if(!selectedUser)return;await authFetch(`${API}/users/${selectedUser}/memo?conversation_id=${selectedConv||''}`,{method:'POST',body:JSON.stringify({notes:memoTop.value||''})});alert('メモ保存しました');}
+function copyRef(){p_ref_link.select();document.execCommand('copy');alert('コピーしました');}
+async function sendReferralLink(){if(!selectedUser)return;const slot=(document.getElementById('refChannelSlot')||{}).value||'';const qs=`conversation_id=${selectedConv||''}`+(slot?`&channel_slot=${slot}`:'');const r=await authFetch(`${API}/users/${selectedUser}/send-referral-link?${qs}`,{method:'POST'});const j=await r.json();if(!r.ok||!j.ok){alert('送信失敗');return;}if(j.referral_link){p_ref_link.value=j.referral_link;}alert('紹介リンクを送信しました（リンク登録にも保存）');loadProfile();loadMessages();loadLinks();}
+async function previewTemplateForConversation(message){
+  if(!selectedConv) return {ok:false,rendered:message||'',unresolved:[]};
+  const r=await authFetch(`${API}/templates/preview`,{method:'POST',body:JSON.stringify({conversation_id:selectedConv,body:message||''})});
+  const j=await r.json();
+  if(!r.ok||!j.ok) return {ok:false,rendered:message||'',unresolved:[]};
+  return j;
+}
+
+async function sendSurveyTemplate(){
+  if(!selectedUser)return;
+  const selectedOpt=surveyTemplate.options[surveyTemplate.selectedIndex];
+  if(selectedOpt && !templateAllowedForCurrentChannel(selectedOpt.dataset.folder||'')){ alert('この固定テンプレは現在の公式LINEでは送信できません'); return; }
+  const msg=surveyTemplate.value;
+  const prev=await previewTemplateForConversation(msg);
+  if(prev.unresolved&&prev.unresolved.length){
+    alert('未解決の差し込み変数があります: '+prev.unresolved.join(', '));
+    return;
+  }
+  if(!confirm(`送信プレビュー\n\n${prev.rendered||msg}\n\nこの内容で送信しますか？`)) return;
+  const title=(opt&&opt.dataset&&opt.dataset.title)?opt.dataset.title:''; const transition_tag=(opt&&opt.dataset&&opt.dataset.transitionTag)?opt.dataset.transitionTag:null; const transition_status_label=(opt&&opt.dataset&&opt.dataset.transitionStatus)?opt.dataset.transitionStatus:null; const transition_support_mark=(opt&&opt.dataset&&opt.dataset.transitionSupport)?opt.dataset.transitionSupport:null;
+  const r=await authFetch(`${API}/line/send-templated`,{method:'POST',body:JSON.stringify({conversation_id:selectedConv,body:msg,template_title:title,transition_tag,transition_status_label,transition_support_mark})});
+  const j=await r.json();if(!r.ok||!j.ok){alert('送信失敗');return;}alert('テンプレ送信しました');loadMessages();
+}
+function insertAtCursor(el,text){if(!el)return;const start=el.selectionStart??(el.value||'').length;const end=el.selectionEnd??start;const before=(el.value||'').slice(0,start);const after=(el.value||'').slice(end);el.value=before+text+after;const pos=start+text.length;el.focus();el.setSelectionRange(pos,pos);} 
+function insertVar(){const el=document.getElementById('tplBody');const sel=document.getElementById('tplVarSelect');if(!el||!sel)return;insertAtCursor(el,sel.value||'');}
+function insertSelectedLink(){const el=document.getElementById('tplBody');const sel=document.getElementById('tplLinkSelect');if(!el||!sel)return;insertAtCursor(el,sel.value||'');}
+function toggleFixedChannelSelect(){ const t=(document.getElementById('tplFolderType')||{}).value||'shared'; const w=document.getElementById('fixedChannelWrap'); if(!w) return; w.classList.toggle('hidden', t!=='fixed'); }
+function buildFolderName(baseName){ const t=(document.getElementById('tplFolderType')||{}).value||'shared'; const n=(baseName||'').trim(); if(!n) return ''; if(t==='fixed'){ const ch=(document.getElementById('tplFixedChannel')||{}).value||''; if(!ch){ alert('固定フォルダは公式LINEを選択してください'); return ''; } return `固定/${ch}/${n}`; } return `共有/${n}`; }
+function parseFolderLabel(f){ if(!f) return '-'; if(f.startsWith('固定/')){ const m=f.split('/'); if(m.length>=3) return `固定(${m[1]}) / ${m.slice(2).join('/')}`; } return f; }
+function newTemplateDraft(){ if(!currentFolder){ alert('先にフォルダを選択してください'); return; } editingTemplateId=null; tplTitle.value=''; tplBody.value=''; tplUrl.value=''; if(window.tplTransitionTag) tplTransitionTag.value=''; if(window.tplTransitionStatus) tplTransitionStatus.value=''; if(window.tplTransitionSupport) tplTransitionSupport.value=''; if(tplEditHint) tplEditHint.textContent=''; if(tplCancelEditBtn) tplCancelEditBtn.classList.add('hidden'); if(tplSaveBtn) tplSaveBtn.textContent='保存'; tplTitle.focus(); }
+async function saveTemplate(){if(!currentFolder){ alert('先にフォルダを作成・選択してください'); return; } const title=tplTitle.value.trim(),body=tplBody.value.trim(),url=tplUrl.value.trim();if(!title||!body){alert('タイトル名・本文は必須');return;} const transition_tag=(window.tplTransitionTag?tplTransitionTag.value:'')||null; const transition_status_label=(window.tplTransitionStatus?tplTransitionStatus.value:'')||null; const transition_support_mark=(window.tplTransitionSupport?tplTransitionSupport.value:'')||null; let r,j; if(editingTemplateId){ r=await authFetch(`${API}/templates/${editingTemplateId}/update`,{method:'POST',body:JSON.stringify({title,body,url:url||null,transition_tag,transition_status_label,transition_support_mark})}); j=await r.json(); if(!r.ok||!j.ok){alert('更新失敗');return;} alert('更新しました'); } else { r=await authFetch(`${API}/templates`,{method:'POST',body:JSON.stringify({folder_name:currentFolder,title,body,url:url||null,transition_tag,transition_status_label,transition_support_mark})}); j=await r.json();if(!r.ok||!j.ok){alert('保存失敗');return;} alert('保存しました'); } tplTitle.value='';tplBody.value='';tplUrl.value=''; cancelTemplateEdit(); loadTemplates();}
+async function createFolder(){const name=prompt('新規フォルダ名を入力してください');if(!name) return; const t=(document.getElementById('tplFolderType')||{}).value||'shared'; const fixed=(document.getElementById('tplFixedChannel')||{}).value||''; if(t==='fixed'&&!fixed){ alert('固定フォルダは公式LINEを選択してください'); return; } const r=await authFetch(`${API}/template-folders`,{method:'POST',body:JSON.stringify({folder_name:name.trim(),folder_type:t,fixed_channel_name:(fixed||null)})}); const j=await r.json(); if(!r.ok||!j.ok){ alert('フォルダ作成失敗'); return; } currentFolder=j.folder_name; await loadTemplateFolders(); renderTemplateListByFolder(); alert('フォルダを作成しました');}
+function renderFolderTabs(){
+  const tabs=document.getElementById('folderTabs');if(!tabs)return;tabs.innerHTML='';
+  const showS=(document.getElementById('showShared')||{}).checked!==false;
+  const showF=(document.getElementById('showFixed')||{}).checked!==false;
+  const fromTemplates=(templatesCache||[]).map(t=>t.folder_name).filter(Boolean);
+  const all=[...new Set([...(folderCache||[]), ...fromTemplates])].filter(Boolean);
+  const folders=all.filter(f=>((f.startsWith('共有/')&&showS)||(f.startsWith('固定/')&&showF)||(!f.includes('/')&&showS)));
+  folders.forEach(f=>{const b=document.createElement('button');b.className='tab'+(f===currentFolder?' active':'');b.textContent=parseFolderLabel(f);b.onclick=()=>{currentFolder=f;renderFolderTabs();renderTemplateListByFolder();};tabs.appendChild(b);});
+  if(currentFolder && !folders.includes(currentFolder)){currentFolder=folders[0]||'';}
+  currentFolderLabel.textContent='選択フォルダ: '+parseFolderLabel(currentFolder||'-');
+}
+
+
+
+async function renameCurrentFolder(){
+  if(!currentFolder){ alert('先にフォルダを選択してください'); return; }
+  const meta=(folderMeta||[]).find(f=>f.folder_name===currentFolder);
+  if(!meta){ alert('フォルダ情報が見つかりません。再読込してください。'); return; }
+  const currentBase = (currentFolder.split('/').slice(meta.folder_type==='fixed'?2:1).join('/')||'');
+  const newName=prompt('新しいフォルダ名', currentBase||'');
+  if(newName===null) return;
+  const r=await authFetch(`${API}/template-folders/${meta.id}/rename`,{method:'POST',body:JSON.stringify({new_folder_name:newName,folder_type:meta.folder_type,fixed_channel_name:meta.fixed_channel_name})});
+  const j=await r.json();
+  if(!r.ok||!j.ok){ alert('フォルダ名変更に失敗'); return; }
+  currentFolder=j.folder_name;
+  await Promise.all([loadTemplateFolders(),loadTemplates()]);
+  renderTemplateListByFolder();
+  alert('フォルダ名を変更しました');
+}
+
+async function loadTemplateFolders(){
+  try{
+    const r=await authFetch(`${API}/template-folders`);
+    if(!r.ok) return;
+    const arr=await r.json();
+    folderMeta=(arr||[]);
+    folderCache=[...new Set(folderMeta.map(x=>x.folder_name).filter(Boolean))];
+    renderFolderTabs();
+  }catch(e){}
+}
+
+function renderTemplateListByFolder(){tplList.innerHTML='';(templatesCache||[]).filter(t=>!currentFolder || t.folder_name===currentFolder).forEach(t=>{const row=document.createElement('div');row.className='card';row.innerHTML=`<b>${parseFolderLabel(t.folder_name)} / ${t.title}</b><div class='muted' style='white-space:pre-wrap'>${(t.message||'').replace(/</g,'&lt;')}</div><div style='margin-top:6px'><button onclick='loadTemplateToEditor(${t.id})'>修正</button></div>`;tplList.appendChild(row);});}
+
+function loadTemplateToEditor(templateId){
+  const t=(templatesCache||[]).find(x=>x.id===templateId);
+  if(!t){ alert('テンプレが見つかりません'); return; }
+  editingTemplateId=t.id;
+  currentFolder=t.folder_name||currentFolder;
+  tplTitle.value=t.title||'';
+  tplBody.value=t.body||'';
+  tplUrl.value=t.url||''; if(window.tplTransitionTag) tplTransitionTag.value=t.transition_tag||''; if(window.tplTransitionStatus) tplTransitionStatus.value=t.transition_status_label||''; if(window.tplTransitionSupport) tplTransitionSupport.value=t.transition_support_mark||'';
+  if(tplEditHint) tplEditHint.textContent=`編集中: ${parseFolderLabel(t.folder_name)} / ${t.title}`;
+  if(tplCancelEditBtn) tplCancelEditBtn.classList.remove('hidden');
+  if(tplSaveBtn) tplSaveBtn.textContent='更新保存';
+  renderFolderTabs();
+  renderTemplateListByFolder();
+  tplTitle.focus();
+}
+
+function cancelTemplateEdit(){
+  editingTemplateId=null;
+  if(tplEditHint) tplEditHint.textContent='';
+  if(tplCancelEditBtn) tplCancelEditBtn.classList.add('hidden');
+  if(tplSaveBtn) tplSaveBtn.textContent='保存';
+}
+
+async function loadTemplates(){const r=await authFetch(`${API}/templates`);if(!r.ok)return;const arr=await r.json();templatesCache=arr||[];folderCache=[...new Set([...(folderCache||[]), ...(templatesCache||[]).map(t=>t.folder_name).filter(Boolean)])];surveyTemplate.innerHTML='';const defaults=[{title:'標準テンプレ',message:'ご登録ありがとうございます。登録アンケートを開始しますか？「はい」で開始できます。'},{title:'カジュアル',message:'ご登録ありがとうございます！簡単なアンケートを開始します。よろしければ「はい」と返信してください。'},{title:'フォーマル',message:'本人確認のため登録アンケートを開始します。開始する場合は「はい」と返信してください。'}];defaults.forEach(t=>{const o=document.createElement('option');o.value=t.message;o.textContent=t.title;surveyTemplate.appendChild(o);});arr.forEach(t=>{const o=document.createElement('option');o.value=t.message;o.textContent=`${parseFolderLabel(t.folder_name)} / ${t.title}`;o.dataset.folder=t.folder_name||'';surveyTemplate.appendChild(o);});if(!currentFolder && arr.length) currentFolder=arr[0].folder_name;renderFolderTabs();renderTemplateListByFolder();populateFixedChannelSelect();toggleFixedChannelSelect();}
+async function saveLink(){const folder_name=lnkFolder.value.trim(),title=lnkTitle.value.trim(),url=lnkUrl.value.trim(),note=lnkNote.value.trim();if(!folder_name||!title||!url){alert('フォルダ名・タイトル名・URLは必須');return;}const r=await authFetch(`${API}/links`,{method:'POST',body:JSON.stringify({folder_name,title,url,note:note||null})});const j=await r.json();if(!r.ok||!j.ok){alert('保存失敗');return;}alert('リンク保存しました');lnkFolder.value='';lnkTitle.value='';lnkUrl.value='';lnkNote.value='';loadLinks();}
+async function deleteLink(linkId){ if(!confirm('このリンクを削除しますか？')) return; const r=await authFetch(`${API}/links/${linkId}/delete`,{method:'POST'}); const j=await r.json(); if(!r.ok||!j.ok){ alert('削除失敗'); return; } loadLinks(); }
+
+async function loadLinks(){const r=await authFetch(`${API}/links`);if(!r.ok)return;const arr=await r.json();linksCache=arr||[];linkList.innerHTML='';tplLinkSelect.innerHTML='';linksCache.forEach(l=>{const row=document.createElement('div');row.className='card';row.innerHTML=`<b>${l.folder_name} / ${l.title}</b><div class='muted'>${(l.url||'').replace(/</g,'&lt;')}</div><div style='margin-top:6px'><button onclick='deleteLink(${l.id})'>削除</button></div>`;linkList.appendChild(row);const o=document.createElement('option');o.value=l.url;o.textContent=`${l.folder_name} / ${l.title}`;tplLinkSelect.appendChild(o);});}
+
+
+async function populateFixedChannelSelect(){
+  const sel=document.getElementById('tplFixedChannel');
+  if(!sel) return;
+  const prev=sel.value;
+  sel.innerHTML="<option value=''>公式LINEを選択</option>";
+  try{
+    const r=await authFetch(`${API}/line/channels`);
+    const arr=await r.json();
+    (arr||[]).forEach(c=>{ const n=c.name||''; if(!n) return; const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  }catch(e){
+    const uniq=[...new Set((conversations||[]).map(c=>c.channel_name).filter(Boolean))];
+    uniq.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  }
+  if(prev) sel.value=prev;
+}
+function templateAllowedForCurrentChannel(folderName){
+  if(!folderName || !folderName.startsWith('固定/')) return true;
+  const parts=folderName.split('/');
+  const fixedChannelName=parts[1]||'';
+  const current=(selectedConversationObj&&selectedConversationObj.channel_name)||'';
+  return !!current && current===fixedChannelName;
+}
+
+
+function getAllowedTemplatesForCurrentChannel(){
+  return (templatesCache||[]).filter(t=>templateAllowedForCurrentChannel(t.folder_name||''));
+}
+
+function renderQuickTemplateOptions(){
+  const folderSel=document.getElementById('quickTplFolderSelect');
+  const tplSel=document.getElementById('quickTplSelect');
+  const q=((document.getElementById('quickTplSearch')||{}).value||'').toLowerCase();
+  if(!tplSel) return;
+  const folder=(folderSel&&folderSel.value)?folderSel.value:'';
+  tplSel.innerHTML='';
+  getAllowedTemplatesForCurrentChannel()
+    .filter(t=>!folder || t.folder_name===folder)
+    .filter(t=>!q || String(t.title||'').toLowerCase().includes(q))
+    .forEach(t=>{ const o=document.createElement('option'); o.value=t.message||''; o.textContent=`${parseFolderLabel(t.folder_name)} / ${t.title}`; o.dataset.folder=t.folder_name||''; o.dataset.body=t.body||''; o.dataset.title=t.title||''; o.dataset.transitionTag=t.transition_tag||''; o.dataset.transitionStatus=t.transition_status_label||''; o.dataset.transitionSupport=t.transition_support_mark||''; tplSel.appendChild(o); });
+  updateQuickTemplatePreview();
+}
+
+
+function updateQuickTemplatePreview(){
+  const sel=document.getElementById('quickTplSelect');
+  const pv=document.getElementById('quickTplPreview');
+  if(!pv) return;
+  const opt=(sel&&sel.options)?sel.options[sel.selectedIndex]:null;
+  pv.value=(opt && (opt.dataset.body||opt.value)) ? (opt.dataset.body||opt.value) : '';
+}
+
+function openQuickTemplatePicker(){
+  if(!selectedConv||!selectedUser){ alert('先にチャットを選択してください'); return; }
+  const folderSel=document.getElementById('quickTplFolderSelect');
+  const allowed=getAllowedTemplatesForCurrentChannel();
+  const folders=[...new Set(allowed.map(t=>t.folder_name).filter(Boolean))];
+  if(folderSel){
+    folderSel.innerHTML='<option value="">全フォルダ</option>';
+    folders.forEach(f=>{ const o=document.createElement('option'); o.value=f; o.textContent=parseFolderLabel(f); folderSel.appendChild(o); });
+  }
+  const q=document.getElementById('quickTplSearch'); if(q) q.value='';
+  renderQuickTemplateOptions();
+  quickTplModal.style.display='flex';
+}
+async function sendQuickTemplate(){
+  if(!selectedConv||!selectedUser){ alert('チャット未選択'); return; }
+  const sel=document.getElementById('quickTplSelect');
+  const opt=(sel&&sel.options)?sel.options[sel.selectedIndex]:null;
+  if(opt && !templateAllowedForCurrentChannel(opt.dataset.folder||'')){ alert('この固定テンプレは現在の公式LINEでは送信できません'); return; }
+  const msg=(sel&&sel.value)?sel.value:'';
+  if(!msg){ alert('テンプレがありません'); return; }
+  const prev=await previewTemplateForConversation(msg);
+  if(prev.unresolved&&prev.unresolved.length){
+    alert('未解決の差し込み変数があります: '+prev.unresolved.join(', '));
+    return;
+  }
+  if(!confirm(`送信プレビュー\n\n${prev.rendered||msg}\n\nこの内容で送信しますか？`)) return;
+  const title=(opt&&opt.dataset&&opt.dataset.title)?opt.dataset.title:''; const transition_tag=(opt&&opt.dataset&&opt.dataset.transitionTag)?opt.dataset.transitionTag:null; const transition_status_label=(opt&&opt.dataset&&opt.dataset.transitionStatus)?opt.dataset.transitionStatus:null; const transition_support_mark=(opt&&opt.dataset&&opt.dataset.transitionSupport)?opt.dataset.transitionSupport:null;
+  const r=await authFetch(`${API}/line/send-templated`,{method:'POST',body:JSON.stringify({conversation_id:selectedConv,body:msg,template_title:title,transition_tag,transition_status_label,transition_support_mark})});
+  const j=await r.json();
+  if(!r.ok||!j.ok){ alert('送信失敗'); return; }
+  quickTplModal.style.display='none';
+  alert('テンプレ送信しました');
+  loadMessages();
+}
+
+
+async function loadUsers(){
+  const r=await authFetch(`${API}/users`); if(!r.ok) return;
+  const arr=await r.json();
+  const q=((document.getElementById('userSearch')||{}).value||'').toLowerCase();
+  usersList.innerHTML='';
+  arr.filter(u=>!q||String(u.id).includes(q)||String(u.member_code||'').toLowerCase().includes(q)||String(u.display_name||'').toLowerCase().includes(q))
+    .forEach(u=>{
+      const row=document.createElement('div'); row.className='card';
+      row.innerHTML=`<div class='row'><img class='avatar' src='${u.profile_image_url||''}' onerror="this.style.visibility='hidden'"><div><b>${u.display_name||'-'}</b> <span class='muted'>(${u.member_code||('U'+String(u.id).padStart(6,'0'))})</span><div class='muted'>タグ:${u.tag||'-'} / ステータス:${u.status_label||'-'} / 対応:${u.support_mark||'-'} / 会話:${u.conversation_count} / 最新公式LINE:${u.latest_channel_name||'-'}</div></div></div>`;
+      row.onclick=()=>openUserDetail(u.id);
+      usersList.appendChild(row);
+    });
+}
+
+async function openUserDetail(userId){
+  const r=await authFetch(`${API}/users/${userId}/detail`); if(!r.ok) return;
+  const d=await r.json();
+  const cps=(d.channel_profiles||[]);
+  const first=cps[0]||{};
+  const profileOptions=cps.map((p,i)=>`<option value='${i}'>${p.channel_name||'未紐付け'} (ch:${p.channel_id??'-'})</option>`).join('');
+  userDetailPane.innerHTML=`
+    <div class='card'><b>ユーザー詳細編集</b></div>
+    <div class='card'><div class='k'>名前</div><input id='ud_name' value='${(d.user.display_name||'').replace(/'/g,"&#39;")}'></div>
+    <div class='card'><div class='k'>メール</div><input id='ud_email' value='${(d.user.email||'').replace(/'/g,"&#39;")}'></div>
+    <div class='card'><div class='k'>年齢</div><input id='ud_age' type='number' value='${d.user.age??''}'></div>
+    <div class='card'><div class='k'>性別</div><select id='ud_gender'><option ${d.user.gender==='男性'?'selected':''}>男性</option><option ${d.user.gender==='女性'?'selected':''}>女性</option><option ${d.user.gender==='未回答'?'selected':''}>未回答</option></select></div>
+    <div class='card'><div class='k'>電話</div><input id='ud_phone' value='${(d.user.phone_number||'').replace(/'/g,"&#39;")}'></div>
+    <div class='card'><div class='k'>タグ / ステータス</div><input id='ud_tag' value='${(d.user.tag||'').replace(/'/g,"&#39;")}'><input id='ud_status' value='${(d.user.status_label||'').replace(/'/g,"&#39;")}' style='margin-top:8px'></div>
+    <div class='card'><div class='k'>チャネル別プロフィール</div><select id='ud_channel_profile' onchange='switchUserChannelProfile()'>${profileOptions||"<option value='-1'>未設定</option>"}</select></div>
+    <div class='card'><div class='k'>アンケート</div><textarea id='ud_work' rows='2' placeholder='希望業務'>${first.desired_work||''}</textarea><textarea id='ud_time' rows='2' placeholder='稼働時間' style='margin-top:6px'>${first.available_time||''}</textarea><textarea id='ud_reward' rows='2' placeholder='希望報酬' style='margin-top:6px'>${first.desired_reward||''}</textarea><textarea id='ud_exp' rows='2' placeholder='経験レベル' style='margin-top:6px'>${first.experience_level||''}</textarea><textarea id='ud_notes' rows='4' placeholder='メモ' style='margin-top:6px'>${first.notes||''}</textarea></div>
+    <div class='card'><div class='k'>登録チャネル</div><div class='muted'>${(d.channels||[]).map(c=>`${c.channel_name||'-'} / ${c.line_user_id||'-'}`).join('<br>')||'-'}</div></div>
+    <div class='card'><button class='primary' onclick='saveUserDetail(${userId})'>保存</button></div>
+  `;
+  window.__userChannelProfiles = cps;
+}
+
+function switchUserChannelProfile(){
+  const sel=document.getElementById('ud_channel_profile');
+  const cps=window.__userChannelProfiles||[];
+  const i=Number(sel?.value||0);
+  const p=cps[i]||{};
+  if(ud_work) ud_work.value=p.desired_work||'';
+  if(ud_time) ud_time.value=p.available_time||'';
+  if(ud_reward) ud_reward.value=p.desired_reward||'';
+  if(ud_exp) ud_exp.value=p.experience_level||'';
+  if(ud_notes) ud_notes.value=p.notes||'';
+}
+
+async function saveUserDetail(userId){
+  const cps=window.__userChannelProfiles||[];
+  const idx=Number((document.getElementById('ud_channel_profile')||{}).value||0);
+  const selectedProfile=cps[idx]||{};
+  const payload={
+    display_name: ud_name.value || null,
+    email: ud_email.value || null,
+    age: ud_age.value ? Number(ud_age.value) : null,
+    gender: ud_gender.value || null,
+    phone_number: ud_phone.value || null,
+    tag: ud_tag.value || null,
+    status_label: ud_status.value || null,
+    channel_id: (selectedProfile.channel_id ?? null),
+    desired_work: ud_work.value || null,
+    available_time: ud_time.value || null,
+    desired_reward: ud_reward.value || null,
+    experience_level: ud_exp.value || null,
+    notes: ud_notes.value || null,
+  };
+  const r=await authFetch(`${API}/users/${userId}/detail`,{method:'POST',body:JSON.stringify(payload)});
+  const j=await r.json();
+  if(!r.ok||!j.ok){ alert('保存失敗'); return; }
+  alert('保存しました');
+  loadUsers();
+  if(selectedUser===userId) loadProfile();
+}
+
+async function hideChannel(channelId){ const r=await authFetch(`${API}/line/channels/${channelId}/hide`,{method:'POST'}); const j=await r.json(); if(!r.ok||!j.ok){alert('非表示失敗');return;} loadChannels(); }
+async function unhideChannel(channelId){ const r=await authFetch(`${API}/line/channels/${channelId}/unhide`,{method:'POST'}); const j=await r.json(); if(!r.ok||!j.ok){alert('再表示失敗');return;} loadChannels(); }
+async function mergeChannelPrompt(fromId){ const toId=prompt('統合先チャネルIDを入力してください'); if(!toId) return; if(!confirm(`CH#${fromId} を CH#${toId} に統合します。よろしいですか？`)) return; const r=await authFetch(`${API}/line/channels/merge`,{method:'POST',body:JSON.stringify({from_channel_id:Number(fromId),to_channel_id:Number(toId),deactivate_from:true})}); const j=await r.json(); if(!r.ok||!j.ok){alert('統合失敗');return;} alert('統合しました'); loadChannels(); }
+async function loadThanksConfig(){ const r=await authFetch(`${API}/ops/thanks-config`); const j=await r.json(); if(!r.ok||!j.ok){alert('読込失敗'); return;} thanksImageUrl.value=j.image_url||''; thanksWaitSec.value=(j.wait_sec??2); }
+async function saveThanksConfig(){ const payload={ image_url: thanksImageUrl.value||'', wait_sec: Number(thanksWaitSec.value||2)}; const r=await authFetch(`${API}/ops/thanks-config`,{method:'POST',body:JSON.stringify(payload)}); const j=await r.json(); if(!r.ok||!j.ok){alert('保存失敗');return;} alert('保存しました（必要に応じてサービス再起動）'); }
+
+
+async function saveChannelType(channelId){
+  const el=document.getElementById(`chType_${channelId}`); const v=(el&&el.value)||'';
+  const r=await authFetch(`${API}/line/channels/${channelId}/type?business_type=${encodeURIComponent(v)}`,{method:'POST'});
+  const j=await r.json(); if(!r.ok||!j.ok){ alert('保存失敗'); return; }
+  alert('保存しました');
+}
+
+async function loadProducts(){
+  const listEl=document.getElementById('productsList');
+  if(!listEl) return;
+  const r=await authFetch(`${API}/products`); if(!r.ok) return;
+  const arr=await r.json();
+  listEl.innerHTML='';
+  (arr||[]).forEach(p=>{ const row=document.createElement('div'); row.className='card'; row.innerHTML=`<b>${p.name}</b> <span class='muted'>(${p.business_type==='material'?'商材':'副業'})</span><div class='muted'>価格: ${p.price??'-'} / URL: ${(p.purchase_url||'-').replace(/</g,'&lt;')}</div><div class='muted'>${(p.description||'').replace(/</g,'&lt;')}</div><div style='margin-top:6px'><button onclick='deleteProduct(${p.id})'>削除</button></div>`; listEl.appendChild(row);});
+}
+async function saveProduct(){
+  const payload={business_type:prdType.value||'material',name:prdName.value.trim(),price:prdPrice.value?Number(prdPrice.value):null,description:prdDesc.value||'',purchase_url:prdUrl.value||''};
+  if(!payload.name){alert('商品名は必須');return;}
+  const r=await authFetch(`${API}/products`,{method:'POST',body:JSON.stringify(payload)}); const j=await r.json(); if(!r.ok||!j.ok){alert('保存失敗');return;} alert('保存しました'); prdName.value='';prdPrice.value='';prdDesc.value='';prdUrl.value=''; loadProducts();
+}
+async function deleteProduct(id){ if(!confirm('商品を削除しますか？')) return; const r=await authFetch(`${API}/products/${id}/delete`,{method:'POST'}); const j=await r.json(); if(!r.ok||!j.ok){alert('削除失敗');return;} loadProducts(); }
+
+async function loadChannels(){
+  const r=await authFetch(`${API}/line/channels`); if(!r.ok) return;
+  const arr=await r.json();
+  channelsList.innerHTML='';
+  if(!arr.length){ channelsList.innerHTML='<div class="muted">チャネル情報なし</div>'; return; }
+  arr.forEach(c=>{
+    const row=document.createElement('div'); row.className='card';
+    const actionButtons = c.is_active
+      ? `<button onclick='hideChannel(${c.id})'>非表示</button>`
+      : `<button onclick='unhideChannel(${c.id})'>再表示</button>`;
+    const officialLink = c.official_line_url
+      ? `<div><a href='${c.official_line_url}' target='_blank' rel='noopener'>公式LINEへ移動</a></div>`
+      : '';
+    row.innerHTML = `<div class='row'><img class='avatar' src='${c.picture_url||''}' onerror="this.style.visibility='hidden'"><div><b>${c.name||'-'}</b> <span class='muted'>(ID:${c.id})</span><div class='muted'>provider: ${c.provider_name||c.provider||'-'}</div><div class='muted'>webhook: ${c.webhook_url||'-'}</div><div class='muted'>BOT ID: ${c.bot_id||'-'}</div><div class='muted'>destination: ${c.destination_id||'-'}</div><div class='muted'>followers: ${c.follower_count??'-'} / last_sync: ${c.last_synced_at||'-'}</div><div class='muted'>状態: ${c.is_active ? '表示' : '非表示'}</div><div style='margin-top:6px' class='row'><select id='chType_${c.id}'><option value=''>種別未設定</option><option value='sidejob' ${c.business_type==='sidejob'?'selected':''}>副業</option><option value='material' ${c.business_type==='material'?'selected':''}>商材</option></select><button onclick='saveChannelType(${c.id})'>種別保存</button></div>${officialLink}<div style='margin-top:6px;display:flex;gap:6px'>${actionButtons}<button onclick='mergeChannelPrompt(${c.id})'>他チャネルへ統合</button></div></div></div>`;
+    channelsList.appendChild(row);
+  });
+}
+
+async function addChannel(){
+  const payload={
+    slot: chSlot.value?Number(chSlot.value):null,
+    name: (chName.value||'').trim(),
+    channel_id: (chId.value||'').trim(),
+    destination_id: (chDest.value||'').trim(),
+    channel_secret: (chSecret.value||'').trim(),
+    access_token: (chToken.value||'').trim(),
+    friend_add_url: (chFriend.value||'').trim() || null,
+  };
+  if(!payload.channel_id||!payload.channel_secret||!payload.access_token){
+    alert('必須項目を入力してください'); return;
+  }
+  const r=await authFetch(`${API}/line/channels/add`,{method:'POST',body:JSON.stringify(payload)});
+  const j=await r.json();
+  if(!r.ok||!j.ok){ alert('追加失敗'); return; }
+  alert(`追加完了: ${j.resolved_name||'-'} / ${j.resolved_destination_id||'-'}\nENV保存済み。自動再起動を開始します。`);
+  try{ await authFetch(`${API}/ops/restart-services`,{method:'POST'}); }catch(e){}
+  await loadChannels();
+}
+
+async function syncChannels(){
+  const r=await authFetch(`${API}/line/channels/sync`,{method:'POST'});
+  const j=await r.json();
+  if(!r.ok||!j.ok){ alert('同期失敗'); return; }
+  alert(`同期完了: ${j.count}件`);
+  loadChannels();
+}
+setTimeout(()=>{ if(search && search.value==='admin') search.value=''; },50); search.oninput=renderConversations; if(filterChannel) filterChannel.onchange=renderConversations; if(filterTag) filterTag.onchange=renderConversations; if(filterStatus) filterStatus.onchange=renderConversations; if(document.getElementById('userSearch')) userSearch.oninput=loadUsers; sendBtn.onclick=sendLine;saveAttr.onclick=saveAttributes;msgInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendLine();}});
+if(token){bootstrap();}else loginModal.style.display='flex';setInterval(()=>{if(token){loadConversations();if(selectedConv)loadMessages();}},10000);
+</script></body></html>
